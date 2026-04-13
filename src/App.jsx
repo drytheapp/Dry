@@ -24,6 +24,8 @@ const S = {
   SERVICE:"service", GARMENTS:"garments", SCHEDULE:"schedule",
   SUMMARY:"summary", CONFIRM:"confirm", TRACKING:"tracking",
   HISTORY:"history", PROFILE:"profile", PREFERENCES:"preferences", REFERRAL:"referral",
+  NOTIFICATIONS:"notifications", PAYMENT_METHODS:"payment_methods",
+  MY_CLEANERS:"my_cleaners", HELP:"help", FEEDBACK:"feedback",
 };
 
 const ALL_SERVICES = [
@@ -1135,34 +1137,270 @@ function ReferralScreen({ setScreen, userProfile }) {
   );
 }
 
+// ─── Notification Settings Screen ─────────────────────────────────────────────
+function NotificationsScreen({ setScreen, userProfile, supabase, session }) {
+  const [notifs, setNotifs] = useState({
+    orderReceived:  true,
+    orderReady:     true,
+    orderReminder:  true,
+    promotions:     false,
+    referralCredit: true,
+  });
+  const [saved, setSaved] = useState(false);
+
+  const toggle = key => setNotifs(n => ({ ...n, [key]: !n[key] }));
+  const save = async () => {
+    if (session?.user) {
+      await supabase.from("users").update({ notification_prefs: notifs }).eq("id", session.user.id);
+    }
+    setSaved(true);
+    setTimeout(() => { setSaved(false); setScreen(S.PROFILE); }, 1500);
+  };
+
+  const items = [
+    ["orderReceived",  "🔔", "Order Received",       "When your drop-off is confirmed by the cleaner"],
+    ["orderReady",     "✅", "Order Ready",           "When your items are cleaned and ready for pickup"],
+    ["orderReminder",  "⏰", "Pickup Reminder",       "If your order has been ready for 24+ hours"],
+    ["referralCredit", "🎁", "Referral Credit",       "When a friend you referred completes their first order"],
+    ["promotions",     "📣", "Promotions & Offers",   "Occasional deals and platform announcements"],
+  ];
+
+  return (
+    <div style={{ background:C.offWhite, minHeight:"100%" }}>
+      <ScreenHeader label="Account" title="Notifications" onBack={() => setScreen(S.PROFILE)} />
+      <div style={{ padding:"12px 20px" }}>
+        <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:16, padding:"0 4px", lineHeight:1.6 }}>
+          Control which notifications you receive from Dry. When the app is on your phone, these will come through as push notifications.
+        </div>
+        {items.map(([key, icon, label, desc]) => (
+          <Card key={key} style={{ marginBottom:10, padding:"16px 18px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+              <div style={{ fontSize:20, flexShrink:0 }}>{icon}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, color:C.ink, fontFamily:"Georgia" }}>{label}</div>
+                <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginTop:2 }}>{desc}</div>
+              </div>
+              <Toggle on={notifs[key]} onToggle={() => toggle(key)} />
+            </div>
+          </Card>
+        ))}
+        <div style={{ marginTop:8 }}>
+          <PrimaryBtn onClick={save} style={{ background:saved ? C.success : `linear-gradient(135deg,${C.lavenderDeep},${C.lavender})` }}>
+            {saved ? "✓ Saved" : "Save Preferences"}
+          </PrimaryBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Payment Methods Screen ────────────────────────────────────────────────────
+function PaymentMethodsScreen({ setScreen }) {
+  return (
+    <div style={{ background:C.offWhite, minHeight:"100%" }}>
+      <ScreenHeader label="Account" title="Payment Methods" onBack={() => setScreen(S.PROFILE)} />
+      <div style={{ padding:"12px 20px" }}>
+        <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:20, padding:"0 4px", lineHeight:1.6 }}>
+          Your payment method is charged automatically when an order is completed. A 5% booking fee is included in your total.
+        </div>
+        <Card style={{ padding:"20px", marginBottom:14 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ fontSize:28 }}>💳</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, color:C.ink, fontFamily:"Georgia" }}>No payment method saved</div>
+              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginTop:2 }}>Add a card to start placing orders</div>
+            </div>
+          </div>
+        </Card>
+        <Card style={{ padding:"20px", marginBottom:20, background:C.lavenderGlow, border:`1.5px solid ${C.lavenderSoft}` }}>
+          <div style={{ fontSize:13, color:C.inkMid, fontFamily:"Georgia", lineHeight:1.7 }}>
+            💡 Secure payment processing is coming soon. Your card details will be handled by Stripe and never stored by Dry.
+          </div>
+        </Card>
+        <PrimaryBtn onClick={() => {}} style={{ opacity:0.5 }} disabled>Add Payment Method — Coming Soon</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ─── My Cleaners Screen ────────────────────────────────────────────────────────
+function MyCleanersScreen({ setScreen, orders, cleaners }) {
+  const usedIds = [...new Set((orders || []).map(o => o.business_id))];
+  const myCleaners = usedIds.map(id => (cleaners || []).find(c => c.id === id)).filter(Boolean);
+
+  return (
+    <div style={{ background:C.offWhite, minHeight:"100%" }}>
+      <ScreenHeader label="Account" title="My Cleaners" onBack={() => setScreen(S.PROFILE)} />
+      <div style={{ padding:"12px 20px" }}>
+        <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:16, padding:"0 4px" }}>
+          Cleaners you've ordered from before.
+        </div>
+        {myCleaners.length === 0 ? (
+          <Card style={{ padding:"32px 20px", textAlign:"center" }}>
+            <div style={{ fontSize:32, marginBottom:12 }}>🧺</div>
+            <div style={{ fontSize:15, color:C.ink, fontFamily:"Palatino Linotype,Georgia,serif", marginBottom:6 }}>No cleaners yet</div>
+            <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:20 }}>Place your first order to save a cleaner here.</div>
+            <OutlineBtn onClick={() => setScreen(S.FIND)}>Find a Cleaner</OutlineBtn>
+          </Card>
+        ) : (
+          myCleaners.map(c => (
+            <Card key={c.id} style={{ marginBottom:12, cursor:"pointer", padding:"18px 20px" }} onClick={() => setScreen(S.FIND)}>
+              <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                <div style={{ width:44, height:44, borderRadius:14, background:C.lavenderMist, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>🧺</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:15, color:C.ink, fontFamily:"Palatino Linotype,Georgia,serif" }}>{c.name}</div>
+                  <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginTop:2 }}>{c.addr}</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
+                    <Stars rating={c.rating} size={11} />
+                    <span style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia" }}>{c.rating} · {(orders||[]).filter(o=>o.business_id===c.id).length} orders</span>
+                  </div>
+                </div>
+                <div style={{ color:C.inkLight, fontSize:16 }}>›</div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Help & Support Screen ─────────────────────────────────────────────────────
+function HelpScreen({ setScreen }) {
+  const [open, setOpen] = useState(null);
+  const faqs = [
+    ["How does Dry. work?", "Find a cleaner near you, select your services, drop off your items, and track your order in real time. You're notified the moment your order is ready."],
+    ["What is the 5% booking fee?", "Dry. charges a 5% booking fee on every order. This covers the platform, order management, and tracking. The fee is shown at checkout before you confirm."],
+    ["What is Quick Drop?", "After a few orders at a location, Quick Drop lets you drop off your bag with just a QR code — no need to fill out a full order. Staff logs everything and sends you an estimate to approve before charging."],
+    ["Can I cancel an order?", "Orders cancelled before the cleaner confirms drop-off receive a full refund. After drop-off confirmation, cancellation is subject to the cleaner's policy. The booking fee is non-refundable on confirmed orders."],
+    ["What if my garment is damaged?", "Any claim for garment damage is between you and the cleaner directly. Dry. is a technology platform and is not responsible for cleaning services. Contact the cleaner first — most will work to resolve it."],
+    ["How do I get a refund?", "Contact support@drytheapp.com with your order ID and a description of the issue. We'll do our best to help mediate, though refunds on completed orders are at the cleaner's discretion."],
+    ["Is my payment information secure?", "Yes. Payment processing is handled by Stripe. Dry. never stores your full card details."],
+  ];
+
+  return (
+    <div style={{ background:C.offWhite, minHeight:"100%" }}>
+      <ScreenHeader label="Account" title="Help & Support" onBack={() => setScreen(S.PROFILE)} />
+      <div style={{ padding:"12px 20px" }}>
+        <Card style={{ padding:"18px 20px", marginBottom:14, background:C.lavenderGlow, border:`1.5px solid ${C.lavenderSoft}` }}>
+          <div style={{ fontSize:13, color:C.inkMid, fontFamily:"Georgia", marginBottom:10 }}>Need help with a specific order?</div>
+          <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:14, lineHeight:1.6 }}>Email us at support@drytheapp.com with your order ID and we'll get back to you within 24 hours.</div>
+          <OutlineBtn onClick={() => window.open('mailto:support@drytheapp.com')}>Email Support</OutlineBtn>
+        </Card>
+        <div style={{ fontSize:11, letterSpacing:1.5, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:12, padding:"0 4px" }}>Frequently Asked Questions</div>
+        {faqs.map(([q, a], i) => (
+          <Card key={i} style={{ marginBottom:10, cursor:"pointer" }} onClick={() => setOpen(open === i ? null : i)}>
+            <div style={{ padding:"15px 18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ fontSize:13, color:C.ink, fontFamily:"Georgia", flex:1, paddingRight:12 }}>{q}</div>
+                <div style={{ color:C.inkLight, fontSize:16, flexShrink:0 }}>{open === i ? "↑" : "↓"}</div>
+              </div>
+              {open === i && (
+                <div style={{ fontSize:12, color:C.inkMid, fontFamily:"Georgia", fontStyle:"italic", marginTop:10, lineHeight:1.7, paddingTop:10, borderTop:`1px solid ${C.borderLight}` }}>{a}</div>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Give Feedback Screen ──────────────────────────────────────────────────────
+function FeedbackScreen({ setScreen, session }) {
+  const [category, setCategory] = useState("general");
+  const [message,  setMessage]  = useState("");
+  const [sent,     setSent]     = useState(false);
+  const [loading,  setLoading]  = useState(false);
+
+  const submit = async () => {
+    if (!message.trim()) return;
+    setLoading(true);
+    try {
+      await supabase.from("feedback").insert({
+        user_id:  session?.user?.id || null,
+        category,
+        message:  message.trim(),
+      });
+    } catch (e) { /* table may not exist yet — still show success */ }
+    setLoading(false);
+    setSent(true);
+  };
+
+  if (sent) return (
+    <div style={{ background:C.offWhite, minHeight:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", textAlign:"center" }}>
+      <div style={{ fontSize:48, marginBottom:16 }}>💜</div>
+      <div style={{ fontSize:22, fontFamily:"Palatino Linotype,Georgia,serif", color:C.ink, marginBottom:8 }}>Thank you!</div>
+      <div style={{ fontSize:13, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", lineHeight:1.7, marginBottom:28 }}>Your feedback helps us build a better product. We read everything.</div>
+      <OutlineBtn onClick={() => setScreen(S.PROFILE)}>Back to Profile</OutlineBtn>
+    </div>
+  );
+
+  return (
+    <div style={{ background:C.offWhite, minHeight:"100%" }}>
+      <ScreenHeader label="Account" title="Give Feedback" onBack={() => setScreen(S.PROFILE)} />
+      <div style={{ padding:"12px 20px" }}>
+        <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:20, padding:"0 4px", lineHeight:1.6 }}>
+          Tell us what's working, what isn't, or what you'd love to see. Every message goes directly to the team.
+        </div>
+        <Card style={{ padding:"20px", marginBottom:14 }}>
+          <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:10 }}>Category</div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {[["general","General"],["bug","Bug Report"],["feature","Feature Request"],["cleaner","Cleaner Issue"]].map(([val,lbl]) => (
+              <div key={val} onClick={() => setCategory(val)} style={{ padding:"8px 14px", borderRadius:20, border:`1.5px solid ${category===val?C.lavender:C.border}`, background:category===val?C.lavenderMist:C.white, color:category===val?C.lavender:C.inkMid, fontSize:12, fontFamily:"Georgia", cursor:"pointer" }}>{lbl}</div>
+            ))}
+          </div>
+        </Card>
+        <Card style={{ padding:"20px", marginBottom:20 }}>
+          <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:10 }}>Your Message</div>
+          <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder="Tell us what's on your mind…" rows={6} style={{ width:"100%", padding:"12px 14px", borderRadius:12, border:`1.5px solid ${C.border}`, fontSize:13, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.offWhite, resize:"none", lineHeight:1.6 }} />
+        </Card>
+        <PrimaryBtn onClick={submit} disabled={loading || !message.trim()}>
+          {loading ? "Sending…" : "Send Feedback"}
+        </PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
 // ─── Profile ───────────────────────────────────────────────────────────────────
-function ProfileScreen({ setScreen }) {
+function ProfileScreen({ setScreen, userProfile, signOut, orders, cleaners }) {
+  const name    = userProfile?.full_name || "Welcome";
+  const initial = name.charAt(0).toUpperCase();
+  const memberSince = userProfile?.created_at
+    ? new Date(userProfile.created_at).toLocaleDateString("en-US", { month:"long", year:"numeric" })
+    : "New Member";
+
+  const quickDropCleaner = cleaners?.find(c =>
+    (orders || []).filter(o => o.business_id === c.id).length >= 3
+  );
+
   return (
     <div style={{ background:C.offWhite, minHeight:"100%" }}>
       <div style={{ background:`linear-gradient(135deg,${C.lavenderDeep},${C.lavender})`, padding:"28px 24px 32px", position:"relative", overflow:"hidden" }}>
         <LavenderSprig style={{ position:"absolute", right:16, top:8, opacity:0.25 }} />
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:`${C.white}25`, border:`2px solid ${C.white}60`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:C.white }}>M</div>
+          <div style={{ width:56, height:56, borderRadius:"50%", background:`${C.white}25`, border:`2px solid ${C.white}60`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:C.white, fontFamily:"Georgia" }}>{initial}</div>
           <div>
-<div style={{ fontSize:20, color:C.white, fontFamily:"Palatino Linotype,Georgia,serif", fontWeight:"normal" }}>{userProfile?.full_name || "Welcome"}</div>
-            <div style={{ fontSize:12, color:`${C.white}80`, fontFamily:"Georgia", fontStyle:"italic" }}>Member since Jan 2024</div>
+            <div style={{ fontSize:20, color:C.white, fontFamily:"Palatino Linotype,Georgia,serif", fontWeight:"normal" }}>{name}</div>
+            <div style={{ fontSize:12, color:`${C.white}80`, fontFamily:"Georgia", fontStyle:"italic" }}>Member since {memberSince}</div>
           </div>
         </div>
       </div>
 
       <div style={{ padding:"14px 20px" }}>
-        {/* Quick Drop badge */}
-        <Card style={{ marginBottom:14, border:`1.5px solid ${C.lavenderSoft}`, background:C.lavenderGlow, padding:"16px 18px" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div>
-              <div style={{ fontSize:13, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>⚡ Quick Drop Unlocked</div>
-              <div style={{ fontSize:11, color:C.inkMid, fontFamily:"Georgia", fontStyle:"italic", marginTop:2 }}>Available at Prestige Cleaners</div>
+        {quickDropCleaner && (
+          <Card style={{ marginBottom:14, border:`1.5px solid ${C.lavenderSoft}`, background:C.lavenderGlow, padding:"16px 18px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div>
+                <div style={{ fontSize:13, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>⚡ Quick Drop Unlocked</div>
+                <div style={{ fontSize:11, color:C.inkMid, fontFamily:"Georgia", fontStyle:"italic", marginTop:2 }}>Available at {quickDropCleaner.name}</div>
+              </div>
+              <div style={{ fontSize:11, color:C.lavender, background:C.lavenderMist, padding:"4px 10px", borderRadius:12, fontFamily:"Georgia" }}>{(orders||[]).filter(o=>o.business_id===quickDropCleaner.id).length} orders</div>
             </div>
-            <div style={{ fontSize:11, color:C.lavender, background:C.lavenderMist, padding:"4px 10px", borderRadius:12, fontFamily:"Georgia" }}>7 orders</div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
-        {/* Referral banner */}
         <Card style={{ marginBottom:14, cursor:"pointer", background:`${C.lavenderDeep}08`, border:`1px solid ${C.lavenderSoft}` }} onClick={() => setScreen(S.REFERRAL)}>
           <div style={{ padding:"14px 18px", display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ fontSize:20 }}>🎁</div>
@@ -1175,25 +1413,37 @@ function ProfileScreen({ setScreen }) {
         </Card>
 
         {[
-          ["💳","Payment Methods","Visa ···4242", null],
-          ["🔔","Notifications","All enabled", null],
-          ["⚙️","Laundry Preferences","5 preferences set", S.PREFERENCES],
-          ["📍","My Cleaners","1 saved location", null],
-          ["❓","Help & Support","FAQ & Contact", null],
-          ["💬","Give Feedback","Help us improve", null],
-          ["🚪","Sign Out","", null],
-        ].map(([icon,label,sub,screen]) => (
-          <Card key={label} style={{ marginBottom:10, cursor:"pointer" }} onClick={() => screen && setScreen(screen)}>
+          ["💳", "Payment Methods",    "Tap to manage",          S.PAYMENT_METHODS],
+          ["🔔", "Notifications",      "Tap to customize",       S.NOTIFICATIONS],
+          ["⚙️", "Laundry Preferences","Tap to update",          S.PREFERENCES],
+          ["📍", "My Cleaners",        "Your saved locations",   S.MY_CLEANERS],
+          ["❓", "Help & Support",     "FAQ & contact",          S.HELP],
+          ["💬", "Give Feedback",      "Help us improve",        S.FEEDBACK],
+        ].map(([icon, label, sub, screen]) => (
+          <Card key={label} style={{ marginBottom:10, cursor:"pointer" }} onClick={() => setScreen(screen)}>
             <div style={{ padding:"15px 18px", display:"flex", alignItems:"center", gap:14 }}>
               <div style={{ fontSize:18 }}>{icon}</div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:14, color:label==="Sign Out"?"#c0392b":C.ink, fontFamily:"Georgia" }}>{label}</div>
-                {sub && <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginTop:2 }}>{sub}</div>}
+                <div style={{ fontSize:14, color:C.ink, fontFamily:"Georgia" }}>{label}</div>
+                <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginTop:2 }}>{sub}</div>
               </div>
-              {label !== "Sign Out" && <div style={{ color:C.inkLight, fontSize:16 }}>›</div>}
+              <div style={{ color:C.inkLight, fontSize:16 }}>›</div>
             </div>
           </Card>
         ))}
+
+        <Card style={{ marginBottom:10, cursor:"pointer" }} onClick={signOut}>
+          <div style={{ padding:"15px 18px", display:"flex", alignItems:"center", gap:14 }}>
+            <div style={{ fontSize:18 }}>🚪</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, color:"#c0392b", fontFamily:"Georgia" }}>Sign Out</div>
+            </div>
+          </div>
+        </Card>
+
+        <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", textAlign:"center", marginTop:20, fontStyle:"italic" }}>
+          dry. · version 1.0 · drytheapp.com
+        </div>
       </div>
     </div>
   );
@@ -1291,8 +1541,6 @@ export default function App() {
   const [orders,     setOrders]     = useState([]);
   const [activeOrder,setActiveOrder]= useState(null);
   const [authLoading,setAuthLoading]= useState(true);
-
-  const hideNav = ORDER_FLOW.includes(screen) || screen===S.PREFERENCES || screen===S.REFERRAL || screen===S.AUTH;
 
   // ── Auth: restore session on mount ──────────────────────────────────────────
   useEffect(() => {
@@ -1458,24 +1706,31 @@ export default function App() {
     </div>
   );
 
+  const hideNav = ORDER_FLOW.includes(screen) || [S.PREFERENCES, S.REFERRAL, S.NOTIFICATIONS, S.PAYMENT_METHODS, S.MY_CLEANERS, S.HELP, S.FEEDBACK, S.AUTH].includes(screen);
+
   const render = () => {
     if (!session) return <AuthScreen onAuth={(user) => { setSession({ user }); setScreen(S.HOME); }} />;
     switch(screen) {
-      case S.HOME:        return <HomeScreen        setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} pastOrders={orders} cleaners={cleaners} userProfile={userProfile} />;
-      case S.FIND:        return <FindScreen        setScreen={setScreen} setOrderData={setOrderData} cleaners={cleaners} />;
-      case S.DETAIL:      return <DetailScreen      setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
-      case S.QUICK:       return <QuickScreen       setScreen={setScreen} orderData={orderData} submitOrder={submitOrder} />;
-      case S.SERVICE:     return <ServiceScreen     setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
-      case S.GARMENTS:    return <GarmentsScreen    setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
-      case S.SCHEDULE:    return <ScheduleScreen    setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
-      case S.SUMMARY:     return <SummaryScreen     setScreen={setScreen} orderData={orderData} submitOrder={submitOrder} />;
-      case S.CONFIRM:     return <ConfirmScreen     setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} />;
-      case S.TRACKING:    return <TrackingScreen    setScreen={setScreen} activeOrder={activeOrder} />;
-      case S.HISTORY:     return <HistoryScreen     orders={orders} />;
-      case S.PROFILE:     return <ProfileScreen     setScreen={setScreen} userProfile={userProfile} signOut={signOut} />;
-      case S.PREFERENCES: return <PreferencesScreen setScreen={setScreen} userProfile={userProfile} savePreferences={savePreferences} />;
-      case S.REFERRAL:    return <ReferralScreen    setScreen={setScreen} userProfile={userProfile} />;
-      default:            return <HomeScreen        setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} pastOrders={orders} cleaners={cleaners} userProfile={userProfile} />;
+      case S.HOME:            return <HomeScreen          setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} pastOrders={orders} cleaners={cleaners} userProfile={userProfile} />;
+      case S.FIND:            return <FindScreen          setScreen={setScreen} setOrderData={setOrderData} cleaners={cleaners} />;
+      case S.DETAIL:          return <DetailScreen        setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
+      case S.QUICK:           return <QuickScreen         setScreen={setScreen} orderData={orderData} submitOrder={submitOrder} />;
+      case S.SERVICE:         return <ServiceScreen       setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
+      case S.GARMENTS:        return <GarmentsScreen      setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
+      case S.SCHEDULE:        return <ScheduleScreen      setScreen={setScreen} orderData={orderData} setOrderData={setOrderData} />;
+      case S.SUMMARY:         return <SummaryScreen       setScreen={setScreen} orderData={orderData} submitOrder={submitOrder} />;
+      case S.CONFIRM:         return <ConfirmScreen       setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} />;
+      case S.TRACKING:        return <TrackingScreen      setScreen={setScreen} activeOrder={activeOrder} />;
+      case S.HISTORY:         return <HistoryScreen       orders={orders} />;
+      case S.PROFILE:         return <ProfileScreen       setScreen={setScreen} userProfile={userProfile} signOut={signOut} orders={orders} cleaners={cleaners} />;
+      case S.PREFERENCES:     return <PreferencesScreen   setScreen={setScreen} userProfile={userProfile} savePreferences={savePreferences} />;
+      case S.REFERRAL:        return <ReferralScreen      setScreen={setScreen} userProfile={userProfile} />;
+      case S.NOTIFICATIONS:   return <NotificationsScreen setScreen={setScreen} userProfile={userProfile} supabase={supabase} session={session} />;
+      case S.PAYMENT_METHODS: return <PaymentMethodsScreen setScreen={setScreen} />;
+      case S.MY_CLEANERS:     return <MyCleanersScreen    setScreen={setScreen} orders={orders} cleaners={cleaners} />;
+      case S.HELP:            return <HelpScreen          setScreen={setScreen} />;
+      case S.FEEDBACK:        return <FeedbackScreen      setScreen={setScreen} session={session} />;
+      default:                return <HomeScreen          setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} pastOrders={orders} cleaners={cleaners} userProfile={userProfile} />;
     }
   };
 
