@@ -1144,7 +1144,7 @@ function ProfileScreen({ setScreen }) {
         <div style={{ display:"flex", alignItems:"center", gap:16 }}>
           <div style={{ width:56, height:56, borderRadius:"50%", background:`${C.white}25`, border:`2px solid ${C.white}60`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:C.white }}>M</div>
           <div>
-            <div style={{ fontSize:20, color:C.white, fontFamily:"Palatino Linotype,Georgia,serif", fontWeight:"normal" }}>Marcus Johnson</div>
+<div style={{ fontSize:20, color:C.white, fontFamily:"Palatino Linotype,Georgia,serif", fontWeight:"normal" }}>{userProfile?.full_name || "Welcome"}</div>
             <div style={{ fontSize:12, color:`${C.white}80`, fontFamily:"Georgia", fontStyle:"italic" }}>Member since Jan 2024</div>
           </div>
         </div>
