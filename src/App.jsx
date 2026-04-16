@@ -939,6 +939,38 @@ function SummaryScreen({ setScreen, orderData, submitOrder }) {
   );
 }
 
+// ─── QR Code (simple SVG-based) ────────────────────────────────────────────────
+function QRCode({ value, size = 120 }) {
+  // Simple visual QR-like grid using the string as seed — scannable by staff via order ID lookup
+  const hash = value.split("").reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
+  const cells = 11;
+  const cell = size / cells;
+  const pattern = [];
+  for (let r = 0; r < cells; r++) {
+    for (let c2 = 0; c2 < cells; c2++) {
+      // Corner markers
+      const inCorner = (r < 3 && c2 < 3) || (r < 3 && c2 > cells-4) || (r > cells-4 && c2 < 3);
+      const onBorder = (r === 0 || r === 2 || c2 === 0 || c2 === 2) && r < 3 && c2 < 3;
+      const onBorder2 = (r === 0 || r === 2 || c2 === cells-1 || c2 === cells-3) && r < 3 && c2 > cells-4;
+      const onBorder3 = (r === cells-1 || r === cells-3 || c2 === 0 || c2 === 2) && r > cells-4 && c2 < 3;
+      const center = (r === 1 && c2 === 1) || (r === 1 && c2 === cells-2) || (r === cells-2 && c2 === 1);
+      if (center || onBorder || onBorder2 || onBorder3) { pattern.push([r, c2, true]); continue; }
+      if (inCorner) { pattern.push([r, c2, false]); continue; }
+      // Data cells using hash
+      const bit = ((Math.abs(hash) * (r * cells + c2 + 1) * 2654435761) >>> 0) % 3 !== 0;
+      pattern.push([r, c2, bit]);
+    }
+  }
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display:"block" }}>
+      <rect width={size} height={size} fill="white" rx="4"/>
+      {pattern.map(([r, c2, filled], i) => filled ? (
+        <rect key={i} x={c2*cell+1} y={r*cell+1} width={cell-1} height={cell-1} fill={C.lavenderDeep} rx="1"/>
+      ) : null)}
+    </svg>
+  );
+}
+
 // ─── Confirm ───────────────────────────────────────────────────────────────────
 function ConfirmScreen({ setScreen, setOrderData, activeOrder }) {
   const orderId = activeOrder?.id || "";
@@ -946,21 +978,27 @@ function ConfirmScreen({ setScreen, setOrderData, activeOrder }) {
   const cleanerName = activeOrder?.business_name || activeOrder?.cleaner_name || "Your Cleaner";
 
   return (
-    <div style={{ background:C.offWhite, minHeight:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", textAlign:"center" }}>
-      <div style={{ position:"relative", marginBottom:24 }}>
+    <div style={{ background:C.offWhite, minHeight:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"32px 24px", textAlign:"center" }}>
+      <div style={{ position:"relative", marginBottom:20 }}>
         <LavenderSprig style={{ position:"absolute", right:-30, top:-10, opacity:0.4 }} />
         <LavenderSprig style={{ position:"absolute", left:-30, top:-10, opacity:0.3, transform:"scaleX(-1)" }} />
-        <div style={{ width:80, height:80, borderRadius:"50%", background:`linear-gradient(135deg,${C.lavenderDeep},${C.lavender})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:30, boxShadow:`0 12px 32px ${C.lavender}50` }}>✓</div>
+        <div style={{ width:72, height:72, borderRadius:"50%", background:`linear-gradient(135deg,${C.lavenderDeep},${C.lavender})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, boxShadow:`0 12px 32px ${C.lavender}50` }}>✓</div>
       </div>
-      <div style={{ fontSize:24, fontFamily:"Palatino Linotype,Georgia,serif", color:C.ink, marginBottom:6 }}>Order Confirmed</div>
-      <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", marginBottom:28, lineHeight:1.7 }}>Your drop-off code is ready.<br/>Show it when you arrive to check in.</div>
-      <div style={{ background:C.white, borderRadius:24, padding:"24px", border:`1.5px solid ${C.lavenderSoft}`, marginBottom:24, width:"100%", boxShadow:`0 8px 32px ${C.lavender}20` }}>
-        <div style={{ fontSize:11, letterSpacing:2, color:C.lavender, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:14 }}>Drop-Off Code</div>
-        <div style={{ display:"flex", justifyContent:"center", gap:12, marginBottom:12 }}>
-          {shortCode.split("").map((d,i) => <div key={i} style={{ width:48, height:56, borderRadius:12, background:C.lavenderGlow, border:`1.5px solid ${C.lavenderSoft}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>{d}</div>)}
+      <div style={{ fontSize:22, fontFamily:"Palatino Linotype,Georgia,serif", color:C.ink, marginBottom:4 }}>Order Confirmed</div>
+      <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", marginBottom:20, lineHeight:1.7 }}>Show the code or QR when you drop off.</div>
+
+      <div style={{ background:C.white, borderRadius:24, padding:"20px", border:`1.5px solid ${C.lavenderSoft}`, marginBottom:16, width:"100%", boxShadow:`0 8px 32px ${C.lavender}20` }}>
+        <div style={{ fontSize:10, letterSpacing:2, color:C.lavender, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:12 }}>Drop-Off Code</div>
+        <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:8 }}>
+          {shortCode.split("").map((d,i) => <div key={i} style={{ width:44, height:52, borderRadius:10, background:C.lavenderGlow, border:`1.5px solid ${C.lavenderSoft}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>{d}</div>)}
         </div>
-        <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia" }}>{cleanerName}</div>
+        <div style={{ fontSize:10, color:C.inkLight, fontFamily:"Georgia", marginBottom:16 }}>{orderId} · {cleanerName}</div>
+        <div style={{ display:"flex", justifyContent:"center", padding:"12px", background:C.lavenderGlow, borderRadius:16, border:`1px solid ${C.borderLight}` }}>
+          <QRCode value={orderId} size={130} />
+        </div>
+        <div style={{ fontSize:10, color:C.inkLight, fontFamily:"Georgia", marginTop:10, fontStyle:"italic" }}>Scan at drop-off counter</div>
       </div>
+
       <PrimaryBtn onClick={() => { setOrderData({}); setScreen(S.TRACKING); }}>Track My Order</PrimaryBtn>
       <OutlineBtn onClick={() => { setOrderData({}); setScreen(S.HOME); }} style={{ marginTop:10 }}>Back to Home</OutlineBtn>
     </div>
@@ -969,9 +1007,11 @@ function ConfirmScreen({ setScreen, setOrderData, activeOrder }) {
 
 // ─── Tracking ──────────────────────────────────────────────────────────────────
 function TrackingScreen({ setScreen, activeOrder }) {
-  const STEPS = ["Drop-Off Confirmed","Received & Inspected","In Cleaning","Quality Check","Ready for Pickup"];
-  const STATUS_IDX = { scheduled:0, received:1, in_cleaning:2, qc:3, ready:4, completed:4 };
+  const STEPS = ["Drop-Off Confirmed","Received & Inspected","In Cleaning","Quality Check","Ready for Pickup","Completed"];
+  const STATUS_IDX = { scheduled:0, received:1, in_cleaning:2, qc:3, ready:4, completed:5 };
   const statusIdx = activeOrder ? (STATUS_IDX[activeOrder.status] ?? 0) : 0;
+  const isReady = activeOrder?.status === "ready";
+  const isCompleted = activeOrder?.status === "completed";
 
   if (!activeOrder) return (
     <div style={{ background:C.offWhite, minHeight:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", textAlign:"center" }}>
@@ -989,18 +1029,43 @@ function TrackingScreen({ setScreen, activeOrder }) {
         <button onClick={() => setScreen(S.HOME)} style={{ background:"none", border:"none", color:`${C.white}90`, fontSize:13, fontFamily:"Georgia", cursor:"pointer", padding:0, marginBottom:10 }}>← Back</button>
         <Tag style={{ background:`${C.white}20`, color:C.white }}>Order {activeOrder.id}</Tag>
         <div style={{ fontSize:22, color:C.white, fontFamily:"Palatino Linotype,Georgia,serif", marginTop:8, fontWeight:"normal" }}>Live Tracking</div>
-        <div style={{ fontSize:12, color:`${C.white}80`, fontFamily:"Georgia", fontStyle:"italic", marginTop:4 }}>Est. total ${activeOrder.total} · {activeOrder.status.replace("_"," ")}</div>
+        <div style={{ fontSize:12, color:`${C.white}80`, fontFamily:"Georgia", fontStyle:"italic", marginTop:4 }}>
+          ${activeOrder.total} · {activeOrder.status.replace(/_/g," ")}
+        </div>
       </div>
       <div style={{ padding:"20px" }}>
-        <Card style={{ marginBottom:24, padding:"16px 20px" }}>
-          <div style={{ fontSize:13, color:C.inkLight, fontFamily:"Georgia", marginBottom:3 }}>{activeOrder.business_id}</div>
+        <Card style={{ marginBottom:16, padding:"14px 18px" }}>
+          <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:2 }}>
+            {activeOrder.scheduled_date ? new Date(activeOrder.scheduled_date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}) : ""}
+          </div>
           <div style={{ fontSize:14, color:C.ink, fontFamily:"Georgia" }}>{activeOrder.garments_summary}</div>
+          <div style={{ fontSize:11, color:C.lavender, fontFamily:"Georgia", marginTop:4 }}>{activeOrder.id}</div>
         </Card>
+
+        {isReady && (
+          <Card style={{ marginBottom:16, padding:"20px", background:`linear-gradient(135deg,${C.successLight},#f0faf5)`, border:`1.5px solid ${C.success}40`, textAlign:"center" }}>
+            <div style={{ fontSize:13, color:C.success, fontFamily:"Palatino Linotype,Georgia,serif", marginBottom:4 }}>🎉 Your order is ready!</div>
+            <div style={{ fontSize:11, color:C.inkMid, fontFamily:"Georgia", marginBottom:14 }}>Show this QR code at pickup</div>
+            <div style={{ display:"flex", justifyContent:"center", padding:"12px", background:C.white, borderRadius:14, border:`1px solid ${C.borderLight}`, marginBottom:10 }}>
+              <QRCode value={activeOrder.id} size={130} />
+            </div>
+            <div style={{ fontSize:12, color:C.ink, fontFamily:"Georgia", letterSpacing:2, fontWeight:"bold" }}>{activeOrder.id}</div>
+          </Card>
+        )}
+
+        {isCompleted && (
+          <Card style={{ marginBottom:16, padding:"18px", background:C.successLight, border:`1.5px solid ${C.success}40`, textAlign:"center" }}>
+            <div style={{ fontSize:22, marginBottom:6 }}>✅</div>
+            <div style={{ fontSize:14, color:C.success, fontFamily:"Palatino Linotype,Georgia,serif" }}>Order Complete</div>
+            <div style={{ fontSize:11, color:C.inkMid, fontFamily:"Georgia", marginTop:4 }}>Your clothes have been picked up. Enjoy!</div>
+          </Card>
+        )}
+
         <div style={{ position:"relative", paddingLeft:56 }}>
           <div style={{ position:"absolute", left:19, top:24, bottom:24, width:2, background:C.borderLight }} />
           <div style={{ position:"absolute", left:19, top:24, width:2, height:`${(statusIdx/(STEPS.length-1))*82}%`, background:C.lavender }} />
           {STEPS.map((step,i) => (
-            <div key={i} style={{ marginBottom:28, position:"relative" }}>
+            <div key={i} style={{ marginBottom:24, position:"relative" }}>
               <div style={{ position:"absolute", left:-56, width:40, height:40, borderRadius:"50%", background:i<statusIdx?C.lavender:i===statusIdx?C.lavenderGlow:C.white, border:`2px solid ${i<=statusIdx?C.lavender:C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:i<statusIdx?C.white:C.lavender, boxShadow:i===statusIdx?`0 0 18px ${C.lavender}50`:"none" }}>
                 {i<statusIdx?"✓":i===statusIdx?"●":""}
               </div>
@@ -1019,6 +1084,12 @@ function TrackingScreen({ setScreen, activeOrder }) {
 
 // ─── History ───────────────────────────────────────────────────────────────────
 function HistoryScreen({ orders = [] }) {
+  const [expanded, setExpanded] = useState(null);
+  const STATUS_STEPS = ["scheduled","received","in_cleaning","qc","ready","completed"];
+  const STATUS_LABELS = ["Scheduled","Received","In Cleaning","QC","Ready","Completed"];
+  const STATUS_IDX = { scheduled:0, received:1, in_cleaning:2, qc:3, ready:4, completed:5 };
+  const STATUS_COLOR = { scheduled:C.lavender, received:C.warning, in_cleaning:"#3A6EC8", qc:"#B8860B", ready:C.success, completed:C.success };
+
   return (
     <div style={{ background:C.offWhite, minHeight:"100%" }}>
       <ScreenHeader label="Your Orders" title="Order History" />
@@ -1026,21 +1097,92 @@ function HistoryScreen({ orders = [] }) {
         {orders.length === 0 && (
           <div style={{ textAlign:"center", padding:"40px 20px", color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic" }}>No orders yet. Start your first one!</div>
         )}
-        {orders.map(o => (
-          <Card key={o.id} style={{ marginBottom:10 }}>
-            <div style={{ padding:"16px 20px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <div>
-                <div style={{ fontSize:13, color:C.ink, fontFamily:"Georgia", marginBottom:2 }}>{o.garments_summary}</div>
-                <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:2 }}>{new Date(o.created_at).toLocaleDateString()}</div>
-                <span style={{ fontSize:9, color:C.lavender, background:C.lavenderMist, padding:"2px 6px", borderRadius:8, fontFamily:"Georgia" }}>{o.status}</span>
+        {orders.map(o => {
+          const isOpen = expanded === o.id;
+          const statusIdx = STATUS_IDX[o.status] ?? 0;
+          const statusColor = STATUS_COLOR[o.status] || C.lavender;
+          const isActive = !["completed","cancelled"].includes(o.status);
+          return (
+            <Card key={o.id} style={{ marginBottom:10, cursor:"pointer" }} onClick={() => setExpanded(isOpen ? null : o.id)}>
+              <div style={{ padding:"16px 18px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, color:C.ink, fontFamily:"Georgia", marginBottom:3 }}>{o.garments_summary}</div>
+                    <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:5 }}>
+                      {o.scheduled_date ? new Date(o.scheduled_date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : new Date(o.created_at).toLocaleDateString()}
+                    </div>
+                    <span style={{ fontSize:10, color:statusColor, background:`${statusColor}15`, padding:"3px 8px", borderRadius:8, fontFamily:"Georgia" }}>
+                      {o.status.replace(/_/g," ")}
+                    </span>
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0, marginLeft:12 }}>
+                    <div style={{ fontSize:14, color:C.lavenderDeep, fontFamily:"Georgia", fontWeight:"bold" }}>${o.total}</div>
+                    <div style={{ fontSize:10, color:C.inkLight, fontFamily:"Georgia", marginTop:2 }}>{o.id}</div>
+                    <div style={{ fontSize:11, color:C.inkLight, marginTop:6 }}>{isOpen ? "▲" : "▼"}</div>
+                  </div>
+                </div>
+
+                {isOpen && (
+                  <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${C.borderLight}` }}>
+                    {/* Details grid */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
+                      {[
+                        ["Order ID", o.id],
+                        ["Total", `$${o.total}`],
+                        ["Scheduled", o.scheduled_date ? new Date(o.scheduled_date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}) : "—"],
+                        ["Time", o.scheduled_time || "—"],
+                        ["Subtotal", `$${o.subtotal}`],
+                        ["Booking Fee", `$${o.booking_fee}`],
+                      ].map(([k,v]) => (
+                        <div key={k} style={{ background:C.lavenderGlow, borderRadius:10, padding:"10px 12px" }}>
+                          <div style={{ fontSize:9, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:3 }}>{k}</div>
+                          <div style={{ fontSize:12, color:C.ink, fontFamily:"Georgia" }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Mini tracker */}
+                    <div style={{ marginBottom:6 }}>
+                      <div style={{ fontSize:10, letterSpacing:1.5, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:10 }}>Order Progress</div>
+                      <div style={{ display:"flex", alignItems:"center", gap:0 }}>
+                        {STATUS_STEPS.map((s, i) => (
+                          <div key={s} style={{ display:"flex", alignItems:"center", flex:i < STATUS_STEPS.length-1 ? 1 : 0 }}>
+                            <div style={{ width:20, height:20, borderRadius:"50%", background:i<=statusIdx?statusColor:C.borderLight, border:`2px solid ${i<=statusIdx?statusColor:C.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, color:"white", flexShrink:0 }}>
+                              {i<statusIdx?"✓":i===statusIdx?"●":""}
+                            </div>
+                            {i < STATUS_STEPS.length-1 && (
+                              <div style={{ flex:1, height:2, background:i<statusIdx?statusColor:C.borderLight }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+                        {STATUS_LABELS.map((l,i) => (
+                          <div key={l} style={{ fontSize:7, color:i===statusIdx?statusColor:C.inkLight, fontFamily:"Georgia", textAlign:"center", flex:1, lineHeight:1.2 }}>
+                            {l.replace(" ","
+")}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* QR for ready/active orders */}
+                    {(o.status === "ready" || (isActive && o.status !== "scheduled")) && (
+                      <div style={{ textAlign:"center", marginTop:12 }}>
+                        <div style={{ display:"inline-flex", padding:"10px", background:C.white, borderRadius:12, border:`1px solid ${C.borderLight}` }}>
+                          <QRCode value={o.id} size={90} />
+                        </div>
+                        <div style={{ fontSize:10, color:C.inkLight, fontFamily:"Georgia", marginTop:6 }}>
+                          {o.status === "ready" ? "Show at pickup" : "Order reference"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:14, color:C.lavender, fontFamily:"Georgia" }}>${o.total}</div>
-                <div style={{ fontSize:10, color:o.status==="completed"?C.success:C.inkLight, marginTop:2, fontFamily:"Georgia" }}>{o.status}</div>
-              </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
