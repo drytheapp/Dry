@@ -790,9 +790,14 @@ function GarmentsScreen({ setScreen, orderData, setOrderData }) {
 
 // ─── Schedule ──────────────────────────────────────────────────────────────────
 function ScheduleScreen({ setScreen, orderData, setOrderData }) {
+  // days is array of { iso: "2026-04-18", label: "Fri Apr 18", weekday: "FRI", num: "18" }
   const days = Array.from({length:5},(_,i)=>{
     const d = new Date(); d.setDate(d.getDate()+i+1);
-    return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+    const iso = d.toISOString().split("T")[0];
+    const weekday = d.toLocaleDateString("en-US",{weekday:"short"}).toUpperCase();
+    const month   = d.toLocaleDateString("en-US",{month:"short"});
+    const num     = d.getDate();
+    return { iso, weekday, month, num, label:`${weekday} ${month} ${num}` };
   });
   const times = ["8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"];
   const [day, setDay] = useState(orderData.day||null);
@@ -805,10 +810,10 @@ function ScheduleScreen({ setScreen, orderData, setOrderData }) {
         <div style={{ padding:"18px 4px 10px", fontSize:11, letterSpacing:1.5, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia" }}>Select a day</div>
         <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }}>
           {days.map(d => {
-            const parts = d.split(" ");
-            return <div key={d} onClick={() => setDay(d)} style={{ flexShrink:0, padding:"12px 14px", borderRadius:16, background:day===d?C.lavender:C.white, border:`1.5px solid ${day===d?C.lavender:C.border}`, cursor:"pointer", textAlign:"center", boxShadow:day===d?`0 4px 14px ${C.lavender}40`:"none" }}>
-              <div style={{ fontSize:10, color:day===d?`${C.white}90`:C.inkLight, letterSpacing:0.5, fontFamily:"Georgia" }}>{parts[0].toUpperCase()}</div>
-              <div style={{ fontSize:20, color:day===d?C.white:C.ink, fontFamily:"Palatino Linotype,Georgia,serif", marginTop:2 }}>{parts[1].replace(/\D/g,"")}</div>
+            const selected = day === d.iso;
+            return <div key={d.iso} onClick={() => setDay(d.iso)} style={{ flexShrink:0, padding:"12px 14px", borderRadius:16, background:selected?C.lavender:C.white, border:`1.5px solid ${selected?C.lavender:C.border}`, cursor:"pointer", textAlign:"center", boxShadow:selected?`0 4px 14px ${C.lavender}40`:"none" }}>
+              <div style={{ fontSize:10, color:selected?`${C.white}90`:C.inkLight, letterSpacing:0.5, fontFamily:"Georgia" }}>{d.weekday}</div>
+              <div style={{ fontSize:20, color:selected?C.white:C.ink, fontFamily:"Palatino Linotype,Georgia,serif", marginTop:2 }}>{d.num}</div>
             </div>;
           })}
         </div>
@@ -910,7 +915,7 @@ function SummaryScreen({ setScreen, orderData, submitOrder }) {
           <div style={{ padding:"18px 20px" }}>
             <div style={{ fontSize:11, letterSpacing:1.5, color:C.lavender, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:10 }}>Details</div>
             {[
-              ["Drop-off", `${orderData.day} at ${orderData.time}`],
+              ["Drop-off", `${orderData.day ? new Date(orderData.day + 'T12:00:00').toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}) : ""} at ${orderData.time}`],
               ...(orderData.pickedServices?.includes("pickup") ? [["Delivery","Pickup & Delivery requested"]] : []),
               ...(orderData.photos?.length ? [["Photos",`${orderData.photos.length} photo${orderData.photos.length!==1?"s":""} attached`]] : []),
               ...(orderData.special ? [["Notes", orderData.special]] : []),
@@ -1473,9 +1478,14 @@ function AuthScreen({ onAuth }) {
       if (mode === "signup") {
         const { data, error: err } = await supabase.auth.signUp({ email, password });
         if (err) throw err;
-        // create user profile row
+        // create user profile row — required for orders foreign key
         if (data.user) {
-          await supabase.from("users").insert({ id: data.user.id, full_name: name });
+          const { error: insertErr } = await supabase.from("users").insert({
+            id: data.user.id,
+            full_name: name || email.split("@")[0],
+            email: email,
+          });
+          if (insertErr) console.error("Profile insert error:", insertErr);
         }
         onAuth(data.user);
       } else {
@@ -1627,14 +1637,6 @@ export default function App() {
   // ── Submit a new order to Supabase ────────────────────────────────────────────
   const submitOrder = useCallback(async (data) => {
     if (!session?.user) return null;
-
-    // Ensure the client has a fresh, valid session before inserting
-    const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !freshSession) {
-      console.error("No valid session for order insert:", sessionError);
-      return null;
-    }
-
     const assignments = data.serviceAssignments || {};
     const hangDry     = data.hangDry || {};
     let subtotal = 0, hangDryFee = 0;
@@ -1670,7 +1672,7 @@ export default function App() {
       garments_summary: garmentsSummary,
       special_notes:    data.special || null,
       rush:             !!data.rush,
-      scheduled_date:   data.day ? new Date(data.day).toISOString().split('T')[0] : null,
+      scheduled_date:   data.day,
       scheduled_time:   data.time,
       subtotal,
       booking_fee:      bookingFee,
