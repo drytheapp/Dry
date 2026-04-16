@@ -1630,7 +1630,6 @@ function AuthScreen({ onAuth }) {
           const { error: insertErr } = await supabase.from("users").insert({
             id: data.user.id,
             full_name: name || email.split("@")[0],
-            email: email,
           });
           if (insertErr) console.error("Profile insert error:", insertErr);
         }
@@ -1723,8 +1722,20 @@ export default function App() {
   // ── Load user profile when session changes ───────────────────────────────────
   useEffect(() => {
     if (!session?.user) { setUserProfile(null); return; }
-    supabase.from("users").select("*").eq("id", session.user.id).single()
-      .then(({ data }) => setUserProfile(data));
+    const loadProfile = async () => {
+      const { data, error } = await supabase
+        .from("users").select("*").eq("id", session.user.id).single();
+      if (data) {
+        setUserProfile(data);
+      } else {
+        // Row missing — create it now (handles existing auth users with no profile row)
+        const name = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "";
+        const { data: newRow } = await supabase
+          .from("users").insert({ id: session.user.id, full_name: name }).select().single();
+        if (newRow) setUserProfile(newRow);
+      }
+    };
+    loadProfile();
   }, [session]);
 
   // ── Load cleaners (live, ordered by plan then rating) ────────────────────────
