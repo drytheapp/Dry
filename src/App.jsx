@@ -1159,8 +1159,7 @@ function HistoryScreen({ orders = [] }) {
                       <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
                         {STATUS_LABELS.map((l,i) => (
                           <div key={l} style={{ fontSize:7, color:i===statusIdx?statusColor:C.inkLight, fontFamily:"Georgia", textAlign:"center", flex:1, lineHeight:1.2 }}>
-                            {l.replace(" ","
-")}
+                            {l}
                           </div>
                         ))}
                       </div>
