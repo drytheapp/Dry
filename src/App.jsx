@@ -1619,6 +1619,9 @@ function AccountScreen({ setScreen, userProfile, session, saveProfile }) {
   const [saving,    setSaving]    = useState(false);
   const email = session?.user?.email || "";
 
+  const [resetSent, setResetSent] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+
   const save = async () => {
     setSaving(true);
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
@@ -1626,6 +1629,15 @@ function AccountScreen({ setScreen, userProfile, session, saveProfile }) {
     if (saveProfile) saveProfile({ full_name: fullName, phone });
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const sendReset = async () => {
+    setResetSending(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(session.user.email, {
+      redirectTo: "https://drytheapp.com/?reset=1",
+    });
+    setResetSending(false);
+    if (!error) setResetSent(true);
   };
 
   const inp = (val, set, placeholder, type="text") => (
@@ -1667,6 +1679,17 @@ function AccountScreen({ setScreen, userProfile, session, saveProfile }) {
           </div>
         )}
         <PrimaryBtn onClick={save} disabled={saving}>{saving ? "Saving…" : "Save Changes"}</PrimaryBtn>
+        <div style={{ borderTop:`1px solid ${C.borderLight}`, marginTop:24, paddingTop:20 }}>
+          <div style={{ fontSize:13, color:C.ink, fontFamily:"Palatino Linotype,Georgia,serif", marginBottom:6 }}>Change Password</div>
+          <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", marginBottom:14 }}>We'll send a secure reset link to {session?.user?.email}</div>
+          {resetSent ? (
+            <div style={{ background:C.successLight, border:`1px solid ${C.success}40`, borderRadius:12, padding:"14px 16px", textAlign:"center" }}>
+              <div style={{ fontSize:13, color:C.success, fontFamily:"Georgia" }}>✓ Reset link sent — check your email</div>
+            </div>
+          ) : (
+            <OutlineBtn onClick={sendReset} disabled={resetSending}>{resetSending ? "Sending…" : "Send Password Reset Email"}</OutlineBtn>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1674,7 +1697,8 @@ function AccountScreen({ setScreen, userProfile, session, saveProfile }) {
 
 // ─── Auth Screen ───────────────────────────────────────────────────────────────
 function AuthScreen({ onAuth }) {
-  const [mode, setMode]       = useState("signin");
+  const [mode, setMode]       = useState("signin"); // "signin" | "signup" | "forgot" | "reset"
+  const [resetSent, setResetSent] = useState(false);
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -1685,11 +1709,31 @@ function AuthScreen({ onAuth }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
+  const submitForgot = async () => {
+    if (!email.trim()) { setError("Please enter your email address."); return; }
+    setLoading(true); setError("");
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://drytheapp.com/?reset=1",
+      });
+      if (err) throw err;
+      setResetSent(true);
+    } catch(e) {
+      setError(e.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async () => {
     if (mode === "signup") {
-      if (!firstName.trim()) { setError("Please enter your first name."); return; }
-      if (!email.trim())     { setError("Please enter your email."); return; }
-      if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+      if (!firstName.trim())  { setError("Please enter your first name."); return; }
+      if (!lastName.trim())   { setError("Please enter your last name."); return; }
+      if (!phone.trim())      { setError("Please enter your phone number."); return; }
+      if (!dob.trim())        { setError("Please enter your date of birth."); return; }
+      if (!address.trim())    { setError("Please enter your address."); return; }
+      if (!email.trim())      { setError("Please enter your email."); return; }
+      if (password.length < 6){ setError("Password must be at least 6 characters."); return; }
     }
     setLoading(true); setError("");
     try {
@@ -1734,24 +1778,24 @@ function AuthScreen({ onAuth }) {
         {mode === "signup" && (<>
           <div style={{ display:"flex", gap:10, marginBottom:14 }}>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>First Name</div>
+              <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>First Name *</div>
               <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
             </div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Last Name</div>
+              <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Last Name *</div>
               <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
             </div>
           </div>
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Phone Number</div>
+            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Phone Number *</div>
             <input value={phone} onChange={e => setPhone(e.target.value)} type="tel" placeholder="(555) 555-5555" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
           </div>
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Date of Birth</div>
+            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Date of Birth *</div>
             <input value={dob} onChange={e => setDob(e.target.value)} type="date" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
           </div>
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Address</div>
+            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Address *</div>
             <input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, State ZIP" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
           </div>
         </>)}
@@ -1767,9 +1811,43 @@ function AuthScreen({ onAuth }) {
         <PrimaryBtn onClick={submit} disabled={loading || !email || !password}>
           {loading ? "Please wait…" : mode === "signup" ? "Create Account" : "Sign In"}
         </PrimaryBtn>
+        {mode === "signin" && (
+          <div style={{ textAlign:"center", marginTop:14 }}>
+            <span onClick={() => setMode("forgot")} style={{ fontSize:13, color:C.lavender, fontFamily:"Georgia", cursor:"pointer", textDecoration:"underline" }}>
+              Forgot password?
+            </span>
+          </div>
+        )}
         {mode === "signup" && (
           <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", textAlign:"center", marginTop:14, lineHeight:1.6 }}>
             By creating an account you agree to the Dry. Terms of Service and Privacy Policy.
+          </div>
+        )}
+        {mode === "forgot" && (
+          <div>
+            <BackBtn onClick={() => { setMode("signin"); setError(""); setResetSent(false); }} />
+            <div style={{ marginTop:16, marginBottom:20 }}>
+              <div style={{ fontSize:18, fontFamily:"Palatino Linotype,Georgia,serif", color:C.ink, marginBottom:8 }}>Reset Password</div>
+              <div style={{ fontSize:13, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic", lineHeight:1.6 }}>
+                Enter the email address for your Dry. account and we'll send you a reset link.
+              </div>
+            </div>
+            {resetSent ? (
+              <div style={{ background:C.successLight, border:`1px solid ${C.success}40`, borderRadius:14, padding:"18px 20px", textAlign:"center" }}>
+                <div style={{ fontSize:20, marginBottom:8 }}>✉️</div>
+                <div style={{ fontSize:14, color:C.success, fontFamily:"Georgia", marginBottom:4 }}>Check your email</div>
+                <div style={{ fontSize:12, color:C.inkMid, fontFamily:"Georgia", fontStyle:"italic" }}>We sent a reset link to {email}</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Email Address</div>
+                  <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="your@email.com" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+                </div>
+                {error && <div style={{ fontSize:12, color:"#c0392b", fontFamily:"Georgia", marginBottom:14, padding:"10px 14px", background:"#fdf0f0", borderRadius:10 }}>{error}</div>}
+                <PrimaryBtn onClick={submitForgot} disabled={loading || !email}>{loading ? "Sending…" : "Send Reset Link"}</PrimaryBtn>
+              </>
+            )}
           </div>
         )}
       </div>
