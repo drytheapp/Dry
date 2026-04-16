@@ -560,8 +560,8 @@ function QuickScreen({ setScreen, orderData, submitOrder }) {
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ fontSize:20 }}>💳</div>
             <div>
-              <div style={{ fontSize:13, color:C.ink, fontFamily:"Georgia" }}>Visa ending in 4242</div>
-              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic" }}>Charged only after you approve the estimate</div>
+              <div style={{ fontSize:13, color:C.ink, fontFamily:"Georgia" }}>Charged after you approve the estimate</div>
+              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic" }}>Payment processed securely via Stripe</div>
             </div>
           </div>
         </Card>
@@ -789,7 +789,10 @@ function GarmentsScreen({ setScreen, orderData, setOrderData }) {
 
 // ─── Schedule ──────────────────────────────────────────────────────────────────
 function ScheduleScreen({ setScreen, orderData, setOrderData }) {
-  const days = ["Mon Apr 14","Tue Apr 15","Wed Apr 16","Thu Apr 17","Fri Apr 18"];
+  const days = Array.from({length:5},(_,i)=>{
+    const d = new Date(); d.setDate(d.getDate()+i+1);
+    return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+  });
   const times = ["8:00 AM","9:00 AM","10:00 AM","11:00 AM","12:00 PM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"];
   const [day, setDay] = useState(orderData.day||null);
   const [time, setTime] = useState(orderData.time||null);
@@ -925,7 +928,11 @@ function SummaryScreen({ setScreen, orderData, submitOrder }) {
 }
 
 // ─── Confirm ───────────────────────────────────────────────────────────────────
-function ConfirmScreen({ setScreen, setOrderData }) {
+function ConfirmScreen({ setScreen, setOrderData, activeOrder }) {
+  const orderId = activeOrder?.id || "";
+  const shortCode = orderId ? orderId.slice(-4).toUpperCase() : "----";
+  const cleanerName = activeOrder?.business_name || activeOrder?.cleaner_name || "Your Cleaner";
+
   return (
     <div style={{ background:C.offWhite, minHeight:"100%", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px", textAlign:"center" }}>
       <div style={{ position:"relative", marginBottom:24 }}>
@@ -934,13 +941,13 @@ function ConfirmScreen({ setScreen, setOrderData }) {
         <div style={{ width:80, height:80, borderRadius:"50%", background:`linear-gradient(135deg,${C.lavenderDeep},${C.lavender})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:30, boxShadow:`0 12px 32px ${C.lavender}50` }}>✓</div>
       </div>
       <div style={{ fontSize:24, fontFamily:"Palatino Linotype,Georgia,serif", color:C.ink, marginBottom:6 }}>Order Confirmed</div>
-      <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", marginBottom:28, lineHeight:1.7 }}>Your drop-off code is ready.<br/>Show it at the locker to check in.</div>
+      <div style={{ fontSize:12, color:C.inkLight, fontFamily:"Georgia", marginBottom:28, lineHeight:1.7 }}>Your drop-off code is ready.<br/>Show it when you arrive to check in.</div>
       <div style={{ background:C.white, borderRadius:24, padding:"24px", border:`1.5px solid ${C.lavenderSoft}`, marginBottom:24, width:"100%", boxShadow:`0 8px 32px ${C.lavender}20` }}>
         <div style={{ fontSize:11, letterSpacing:2, color:C.lavender, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:14 }}>Drop-Off Code</div>
         <div style={{ display:"flex", justifyContent:"center", gap:12, marginBottom:12 }}>
-          {["7","4","2","9"].map((d,i) => <div key={i} style={{ width:48, height:56, borderRadius:12, background:C.lavenderGlow, border:`1.5px solid ${C.lavenderSoft}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>{d}</div>)}
+          {shortCode.split("").map((d,i) => <div key={i} style={{ width:48, height:56, borderRadius:12, background:C.lavenderGlow, border:`1.5px solid ${C.lavenderSoft}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>{d}</div>)}
         </div>
-        <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia" }}>Locker 12 · Prestige Cleaners</div>
+        <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia" }}>{cleanerName}</div>
       </div>
       <PrimaryBtn onClick={() => { setOrderData({}); setScreen(S.TRACKING); }}>Track My Order</PrimaryBtn>
       <OutlineBtn onClick={() => { setOrderData({}); setScreen(S.HOME); }} style={{ marginTop:10 }}>Back to Home</OutlineBtn>
@@ -1123,9 +1130,9 @@ function ReferralScreen({ setScreen, userProfile }) {
           <div style={{ display:"flex", justifyContent:"space-between" }}>
             <div>
               <div style={{ fontSize:13, color:C.ink, fontFamily:"Georgia" }}>Your Referral Credit</div>
-              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic" }}>3 friends referred</div>
+              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", fontStyle:"italic" }}>{userProfile?.referral_count > 0 ? `${userProfile.referral_count} friend${userProfile.referral_count !== 1 ? "s" : ""} referred` : "Share your code to earn credit"}</div>
             </div>
-            <div style={{ fontSize:22, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>$60</div>
+            <div style={{ fontSize:22, color:C.lavenderDeep, fontFamily:"Palatino Linotype,Georgia,serif" }}>${userProfile?.referral_credit || 0}</div>
           </div>
         </Card>
 
@@ -1760,5 +1767,3 @@ export default function App() {
     </div>
   );
 }
-
-            
