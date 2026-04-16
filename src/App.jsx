@@ -1627,6 +1627,14 @@ export default function App() {
   // ── Submit a new order to Supabase ────────────────────────────────────────────
   const submitOrder = useCallback(async (data) => {
     if (!session?.user) return null;
+
+    // Ensure the client has a fresh, valid session before inserting
+    const { data: { session: freshSession }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !freshSession) {
+      console.error("No valid session for order insert:", sessionError);
+      return null;
+    }
+
     const assignments = data.serviceAssignments || {};
     const hangDry     = data.hangDry || {};
     let subtotal = 0, hangDryFee = 0;
