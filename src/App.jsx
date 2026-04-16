@@ -1573,12 +1573,12 @@ function ProfileScreen({ setScreen, userProfile, signOut, orders, cleaners }) {
         </Card>
 
         {[
+          ["👤", "Account Details",   "Name, email, phone, address",  S.ACCOUNT],
           ["💳", "Payment Methods",    "Tap to manage",          S.PAYMENT_METHODS],
           ["🔔", "Notifications",      "Tap to customize",       S.NOTIFICATIONS],
           ["⚙️", "Laundry Preferences","Tap to update",          S.PREFERENCES],
           ["📍", "My Cleaners",        "Your saved locations",   S.MY_CLEANERS],
           ["❓", "Help & Support",     "FAQ & contact",          S.HELP],
-          ["👤", "Account Details",   "Email, name, password",  S.ACCOUNT],
           ["💬", "Give Feedback",      "Help us improve",        S.FEEDBACK],
         ].map(([icon, label, sub, screen]) => (
           <Card key={label} style={{ marginBottom:10, cursor:"pointer" }} onClick={() => setScreen(screen)}>
@@ -1610,26 +1610,98 @@ function ProfileScreen({ setScreen, userProfile, signOut, orders, cleaners }) {
   );
 }
 
+// ─── Account Screen ────────────────────────────────────────────────────────────
+function AccountScreen({ setScreen, userProfile, session, saveProfile }) {
+  const [firstName, setFirstName] = useState(userProfile?.full_name?.split(" ")[0] || "");
+  const [lastName,  setLastName]  = useState(userProfile?.full_name?.split(" ").slice(1).join(" ") || "");
+  const [phone,     setPhone]     = useState(userProfile?.phone || "");
+  const [saved,     setSaved]     = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const email = session?.user?.email || "";
+
+  const save = async () => {
+    setSaving(true);
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+    await supabase.from("users").update({ full_name: fullName, phone: phone || null }).eq("id", session.user.id);
+    if (saveProfile) saveProfile({ full_name: fullName, phone });
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const inp = (val, set, placeholder, type="text") => (
+    <input value={val} onChange={e => set(e.target.value)} type={type} placeholder={placeholder}
+      style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+  );
+
+  return (
+    <div style={{ background:C.offWhite, minHeight:"100%" }}>
+      <ScreenHeader label="Profile" title="Account Details" onBack={() => setScreen(S.PROFILE)} />
+      <div style={{ padding:"20px 24px" }}>
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, letterSpacing:1.5, color:C.lavender, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:14 }}>Personal Information</div>
+          <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>First Name</div>
+              {inp(firstName, setFirstName, "First")}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Last Name</div>
+              {inp(lastName, setLastName, "Last")}
+            </div>
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Email</div>
+            <div style={{ padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.borderLight}`, fontSize:14, fontFamily:"Georgia", color:C.inkLight, background:C.lavenderGlow }}>
+              {email}
+            </div>
+            <div style={{ fontSize:10, color:C.inkLight, fontFamily:"Georgia", marginTop:4, fontStyle:"italic" }}>Email cannot be changed here — contact support</div>
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, color:C.inkLight, fontFamily:"Georgia", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Phone Number</div>
+            {inp(phone, setPhone, "(555) 555-5555", "tel")}
+          </div>
+        </div>
+        {saved && (
+          <div style={{ background:C.successLight, border:`1px solid ${C.success}40`, borderRadius:12, padding:"12px 16px", marginBottom:16, fontSize:13, color:C.success, fontFamily:"Georgia", textAlign:"center" }}>
+            ✓ Changes saved
+          </div>
+        )}
+        <PrimaryBtn onClick={save} disabled={saving}>{saving ? "Saving…" : "Save Changes"}</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
 // ─── Auth Screen ───────────────────────────────────────────────────────────────
 function AuthScreen({ onAuth }) {
-  const [mode, setMode]       = useState("signin"); // "signin" | "signup"
+  const [mode, setMode]       = useState("signin");
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName]       = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName]   = useState("");
+  const [phone, setPhone]     = useState("");
+  const [dob, setDob]         = useState("");
+  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
   const submit = async () => {
+    if (mode === "signup") {
+      if (!firstName.trim()) { setError("Please enter your first name."); return; }
+      if (!email.trim())     { setError("Please enter your email."); return; }
+      if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    }
     setLoading(true); setError("");
     try {
       if (mode === "signup") {
+        const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
         const { data, error: err } = await supabase.auth.signUp({ email, password });
         if (err) throw err;
-        // create user profile row — required for orders foreign key
         if (data.user) {
           const { error: insertErr } = await supabase.from("users").insert({
             id: data.user.id,
-            full_name: name || email.split("@")[0],
+            full_name: fullName || email.split("@")[0],
+            phone: phone || null,
           });
           if (insertErr) console.error("Profile insert error:", insertErr);
         }
@@ -1659,12 +1731,30 @@ function AuthScreen({ onAuth }) {
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex:1, padding:"10px", borderRadius:12, border:"none", background:mode===m?C.white:"transparent", color:mode===m?C.lavenderDeep:C.inkLight, fontSize:13, fontFamily:"Georgia", cursor:"pointer", boxShadow:mode===m?`0 2px 8px rgba(123,94,167,0.15)`:"none" }}>{lbl}</button>
           ))}
         </div>
-        {mode === "signup" && (
-          <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Full Name</div>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+        {mode === "signup" && (<>
+          <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>First Name</div>
+              <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Last Name</div>
+              <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+            </div>
           </div>
-        )}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Phone Number</div>
+            <input value={phone} onChange={e => setPhone(e.target.value)} type="tel" placeholder="(555) 555-5555" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Date of Birth</div>
+            <input value={dob} onChange={e => setDob(e.target.value)} type="date" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Address</div>
+            <input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St, City, State ZIP" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
+          </div>
+        </>)}
         <div style={{ marginBottom:14 }}>
           <div style={{ fontSize:11, letterSpacing:1.2, color:C.inkLight, textTransform:"uppercase", fontFamily:"Georgia", marginBottom:6 }}>Email</div>
           <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="your@email.com" style={{ width:"100%", padding:"13px 16px", borderRadius:14, border:`1.5px solid ${C.border}`, fontSize:14, fontFamily:"Georgia", color:C.ink, outline:"none", boxSizing:"border-box", background:C.white }} />
@@ -1908,7 +1998,7 @@ export default function App() {
       case S.MY_CLEANERS:     return <MyCleanersScreen    setScreen={setScreen} orders={orders} cleaners={cleaners} />;
       case S.HELP:            return <HelpScreen          setScreen={setScreen} />;
       case S.FEEDBACK:        return <FeedbackScreen      setScreen={setScreen} session={session} />;
-      case S.ACCOUNT:         return <AccountScreen       setScreen={setScreen} userProfile={userProfile} session={session} />;
+      case S.ACCOUNT:         return <AccountScreen       setScreen={setScreen} userProfile={userProfile} session={session} saveProfile={(updates) => setUserProfile(p => ({...p, ...updates}))} />;
       default:                return <HomeScreen          setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} pastOrders={orders} cleaners={cleaners} userProfile={userProfile} />;
     }
   };
