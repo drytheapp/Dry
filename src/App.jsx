@@ -1662,7 +1662,7 @@ export default function App() {
       garments_summary: garmentsSummary,
       special_notes:    data.special || null,
       rush:             !!data.rush,
-      scheduled_date:   data.day,
+      scheduled_date:   data.day ? new Date(data.day).toISOString().split('T')[0] : null,
       scheduled_time:   data.time,
       subtotal,
       booking_fee:      bookingFee,
