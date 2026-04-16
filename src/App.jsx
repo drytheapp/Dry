@@ -26,6 +26,7 @@ const S = {
   HISTORY:"history", PROFILE:"profile", PREFERENCES:"preferences", REFERRAL:"referral",
   NOTIFICATIONS:"notifications", PAYMENT_METHODS:"payment_methods",
   MY_CLEANERS:"my_cleaners", HELP:"help", FEEDBACK:"feedback",
+  ACCOUNT:"account",
 };
 
 const ALL_SERVICES = [
@@ -1425,6 +1426,7 @@ function ProfileScreen({ setScreen, userProfile, signOut, orders, cleaners }) {
           ["⚙️", "Laundry Preferences","Tap to update",          S.PREFERENCES],
           ["📍", "My Cleaners",        "Your saved locations",   S.MY_CLEANERS],
           ["❓", "Help & Support",     "FAQ & contact",          S.HELP],
+          ["👤", "Account Details",   "Email, name, password",  S.ACCOUNT],
           ["💬", "Give Feedback",      "Help us improve",        S.FEEDBACK],
         ].map(([icon, label, sub, screen]) => (
           <Card key={label} style={{ marginBottom:10, cursor:"pointer" }} onClick={() => setScreen(screen)}>
@@ -1572,9 +1574,10 @@ export default function App() {
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase
-        .from("public_businesses")
+        .from("businesses")
         .select("*")
-        .order("plan_rank")
+        .eq("is_active", true)
+        .eq("is_approved", true)
         .order("rating", { ascending: false });
       if (data) {
         const history = orders || [];
@@ -1713,7 +1716,7 @@ export default function App() {
     </div>
   );
 
-  const hideNav = ORDER_FLOW.includes(screen) || [S.PREFERENCES, S.REFERRAL, S.NOTIFICATIONS, S.PAYMENT_METHODS, S.MY_CLEANERS, S.HELP, S.FEEDBACK, S.AUTH].includes(screen);
+  const hideNav = ORDER_FLOW.includes(screen) || [S.PREFERENCES, S.REFERRAL, S.NOTIFICATIONS, S.PAYMENT_METHODS, S.MY_CLEANERS, S.HELP, S.FEEDBACK, S.AUTH, S.ACCOUNT].includes(screen);
 
   const render = () => {
     if (!session) return <AuthScreen onAuth={(user) => { setSession({ user }); setScreen(S.HOME); }} />;
@@ -1737,6 +1740,7 @@ export default function App() {
       case S.MY_CLEANERS:     return <MyCleanersScreen    setScreen={setScreen} orders={orders} cleaners={cleaners} />;
       case S.HELP:            return <HelpScreen          setScreen={setScreen} />;
       case S.FEEDBACK:        return <FeedbackScreen      setScreen={setScreen} session={session} />;
+      case S.ACCOUNT:         return <AccountScreen       setScreen={setScreen} userProfile={userProfile} session={session} />;
       default:                return <HomeScreen          setScreen={setScreen} setOrderData={setOrderData} activeOrder={activeOrder} pastOrders={orders} cleaners={cleaners} userProfile={userProfile} />;
     }
   };
